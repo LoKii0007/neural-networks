@@ -9,16 +9,29 @@ class Value:
         self._op = _op
         self.label = label
         self.grad = grad
+        self._backward = lambda:None
     
     def __repr__(self):
         return f"Value(data={self.data})"
         
     def __add__(self, other):
         out = Value(self.data + other.data, (self, other), "+")
+        
+        def _backward():
+            self.grad = 1.0 * out.grad
+            other.grad = 1.0 * out.grad
+            
+        out._backward = _backward
         return out
     
     def __mul__(self, other):
         out = Value(self.data * other.data, (self, other), "*")
+        
+        def _backward():
+            self.grad = other.data * out.grad
+            other.grad = self.data * out.grad
+            
+        out._backward = _backward
         return out
     
     def __sub__(self, other):
@@ -27,9 +40,31 @@ class Value:
     
     def tanh(self):
         x = self.data
-        tan = (math.exp(2*x) -1)/(math.exp(2*x) + 1)
-        out = Value(tan, (self, ), "tan" )
+        tanx = (math.exp(2*x) -1)/(math.exp(2*x) + 1)
+        out = Value(tanx, (self, ), "tan" )
+        
+        def _backward():
+            self.grad = (1 - tanx ** 2) * out.grad
+            
+        out._backward = _backward
         return out
+    
+    def backward(self):
+        topo = []
+        visited = set()
+        
+        def build_topo(v):
+            if v not in visited:
+                visited.add(v)
+                for child in v._prev:
+                    build_topo(child)
+                topo.append(v)
+        
+        build_topo(self)
+        
+        self.grad = 1.0
+        for node in reversed(topo):
+            node._backward()
 
 
 def lol():
@@ -130,4 +165,41 @@ def visual_recognition():
     
     save_graph(o, "graph-2")
     
-visual_recognition()
+# visual_recognition()
+
+def visual_recognition_2():
+    x1 = Value(2.0, label="x1")
+    x2 = Value(0.0, label="x2")
+    
+    # weights 
+    w1 = Value(-3.0, label="w1")
+    w2 = Value(1.0, label="w2")
+    
+    x1w1 = x1 * w1; x1w1.label = "x1w1"
+    x2w2 = x2 * w2; x2w2.label = "x2w2"
+    
+    Sxiwi = x1w1 + x2w2; Sxiwi.label = "submation"
+    
+    
+    # bias 
+    b = Value(6.8813735870195432, label="b")
+    
+    n = Sxiwi + b ; n.label = "n"
+    o = n.tanh(); o.label = "o"
+    print(o)
+    
+    # backpropagationg derrivates using function
+    # o.grad = 1.0
+    # 
+    # o._backward()
+    # n._backward()
+    # b._backward()
+    # Sxiwi._backward()
+    # x1w1._backward()
+    # x2w2._backward()
+    
+    o.backward()
+    
+    save_graph(o, "graph-2")
+
+visual_recognition_2()
