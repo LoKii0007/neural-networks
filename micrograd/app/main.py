@@ -1,4 +1,4 @@
-from app.viz import save_graph
+from viz import save_graph
 import math
 
 class Value:
@@ -248,7 +248,7 @@ def visual_recognition_2():
     
     save_graph(o, "graph-2")
 
-visual_recognition_2()
+# visual_recognition_2()
 
 def testing():
    a = Value(2.0, label="a")
