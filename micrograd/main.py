@@ -13,30 +13,55 @@ class Value:
     
     def __repr__(self):
         return f"Value(data={self.data})"
+    
+    def _ensure_value(self, other):
+        return other if isinstance(other, Value) else Value(other)
+        
+    def __pow__(self, other):
+        out = Value(self.data ** other, (self, other), "pow")
+        
+        def _backward():
+            self.grad = other.data * self.data ** (other-1)
+            
+        out._backward = _backward
+        
         
     def __add__(self, other):
+        other = self._ensure_value(other)
         out = Value(self.data + other.data, (self, other), "+")
         
         def _backward():
-            self.grad = 1.0 * out.grad
-            other.grad = 1.0 * out.grad
+            self.grad += 1.0 * out.grad
+            other.grad += 1.0 * out.grad
             
         out._backward = _backward
         return out
     
+    def __radd__(self, other):
+        return self + other
+    
     def __mul__(self, other):
+        other = self._ensure_value(other)
         out = Value(self.data * other.data, (self, other), "*")
         
         def _backward():
-            self.grad = other.data * out.grad
-            other.grad = self.data * out.grad
+            self.grad += other.data * out.grad
+            other.grad += self.data * out.grad
             
         out._backward = _backward
         return out
     
+    def __rmul__(self, other):
+        return self * other
+    
     def __sub__(self, other):
+        self._ensure_value(other)
+        
         out = Value(self.data - other.data, (self, other), "-")
         return out
+    
+    def __divmod__(self, other):
+        self.data * other ** (-1)
     
     def tanh(self):
         x = self.data
@@ -44,7 +69,7 @@ class Value:
         out = Value(tanx, (self, ), "tan" )
         
         def _backward():
-            self.grad = (1 - tanx ** 2) * out.grad
+            self.grad += (1 - tanx ** 2) * out.grad
             
         out._backward = _backward
         return out
@@ -202,4 +227,11 @@ def visual_recognition_2():
     
     save_graph(o, "graph-2")
 
-visual_recognition_2()
+# visual_recognition_2()
+
+def testing():
+   a = Value(2.0, label="a")
+   ans = 2.0 * a
+   print(ans)  
+   
+testing()
