@@ -18,13 +18,19 @@ class Value:
         return other if isinstance(other, Value) else Value(other)
         
     def __pow__(self, other):
-        out = Value(self.data ** other, (self, other), "pow")
+        assert isinstance(other, (int, float))
+        
+        out = Value(self.data ** other, (self,), "pow")
         
         def _backward():
-            self.grad = other.data * self.data ** (other-1)
+            self.grad += other * (self.data ** (other-1)) * out.grad
             
         out._backward = _backward
         
+        return out
+        
+    def __neg__(self):
+        return self * -1.0
         
     def __add__(self, other):
         other = self._ensure_value(other)
@@ -55,13 +61,25 @@ class Value:
         return self * other
     
     def __sub__(self, other):
-        self._ensure_value(other)
-        
-        out = Value(self.data - other.data, (self, other), "-")
-        return out
+        return self + (-other)
+
     
-    def __divmod__(self, other):
-        self.data * other ** (-1)
+    def __rsub__(self, other):
+        return self - other
+    
+    def __truediv__(self, other):
+        return self * other ** (-1)
+    
+    def exp(self):
+        x = self.data
+        out = Value(math.exp(x), (self, ), 'exp')
+        
+        def _backward():
+            self.grad += out.data * out.grad
+            
+        out._backward = _backward
+        
+        return out
     
     def tanh(self):
         x = self.data
@@ -210,7 +228,10 @@ def visual_recognition_2():
     b = Value(6.8813735870195432, label="b")
     
     n = Sxiwi + b ; n.label = "n"
-    o = n.tanh(); o.label = "o"
+    # o = n.tanh(); o.label = "o"
+    
+    e = (2*n).exp()
+    o= (e-1)/(e+1) 
     print(o)
     
     # backpropagationg derrivates using function
@@ -227,11 +248,12 @@ def visual_recognition_2():
     
     save_graph(o, "graph-2")
 
-# visual_recognition_2()
+visual_recognition_2()
 
 def testing():
    a = Value(2.0, label="a")
-   ans = 2.0 * a
+   b = Value(1.0, label="b")
+   ans = a/b
    print(ans)  
    
-testing()
+# testing()
