@@ -36,3 +36,23 @@ def save_matrix_image(
 	plt.close()
 
 	return image_path
+
+
+def save_matrix_image_default(
+	N: torch.Tensor,
+	output_dir: str = "graphs",
+) -> Path:
+	output_path = Path(output_dir)
+	output_path.mkdir(parents=True, exist_ok=True)
+
+	timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+	image_path = output_path / f"N_default_{timestamp}.png"
+
+	plt.figure()
+	plt.imshow(N.cpu().numpy(), cmap="Blues")
+	plt.colorbar()
+	plt.tight_layout()
+	plt.savefig(image_path, dpi=150)
+	plt.close()
+
+	return image_path
