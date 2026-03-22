@@ -59,8 +59,9 @@ g = torch.Generator().manual_seed(2147483647)
 # print(ix)
 
 print("-----------------")
-print("working name genrator using just stats/prob")
+print("sampling from stats/prob model")
 print("-----------------")
+g = torch.Generator().manual_seed(2147483647) 
 
 # P = [(N[i].float()) / (N[i].float()).sum() for i in range(27)]
 # print(P)
@@ -70,7 +71,7 @@ P = (N+model_smoothing).float()
 P =P/ P.sum(1, keepdim = True)
 
 
-for i in range(0):
+for i in range(5):
     ix = 0
     out = []
     while True:
@@ -129,7 +130,7 @@ ys = []
     #* xs is input , ys is the label (what output do we want)
     
     
-for w in words[:1]:
+for w in words:
     chs = ["."] + list(w) + ["."]
     for ch1, ch2 in zip(chs, chs[1:]):
         ix1 = stoi[ch1]
@@ -139,6 +140,8 @@ for w in words[:1]:
         
 xs = torch.tensor(xs)
 ys = torch.tensor(ys)
+num = xs.nelement()
+print('num of examples = ', num)
 
 xenc = F.one_hot(xs, num_classes = 27).float()
 # save_matrix_image_default(xenc)
@@ -151,11 +154,18 @@ xenc = F.one_hot(xs, num_classes = 27).float()
     #> one_hot encode converts the integer into a vector of 27 zeroes with a single 1 at the index
     #> so xenc -> is [5,27] array -> 5 training exmaples , each represented in a 27 dim vector
 
+#? initliazing the network 
+g = torch.Generator().manual_seed(2147483647)
+w = torch.randn((27,27), generator =g, requires_grad = True)
 
-w = torch.randn((27,27))
+print("-----------------")
+print("forwards paas")
+print("-----------------")
+
 logits = xenc @ w  #* log-counts
 counts = logits.exp() #* equivalent to N
 probs = counts /counts.sum(1, keepdims = True)
+loss = -probs[torch.arange(num), ys].log().mean()
 # print(probs)
 
 #? why did we multiply the xenc with w ???
@@ -181,5 +191,58 @@ for i in range(5):
     print(f'the model thinks the prob of {ch2} after {ch1} is {p}')
     print(f' {ch1} {ch2} avg nll =  {nlls[i].item()}')
     print(f'loss = {nlls.mean().item()}')
-    print('_____')
+    print('--')
         
+
+print("-----------------")
+print("backwards paas")
+print("-----------------")
+w.grad = None
+loss.backward()
+print('loss -', loss.item())
+# print(w.grad)
+
+
+print("-----------------")
+print("correcting the gradients")
+print("-----------------")
+
+for i in range(100):
+    # forwards pass 
+    xenc = F.one_hot(xs, num_classes=27).float()
+    logits = xenc @ w 
+    counts = logits.exp() 
+    probs = counts /counts.sum(1, keepdims = True)
+    loss = -probs[torch.arange(num), ys].log().mean()
+    regularization = 0.01 * (w**2).mean()
+    loss += regularization
+    # print('loss = ', loss.item())
+    
+    # backwards paas 
+    w.grad = None
+    loss.backward()
+    
+    # update 
+    w.data += -50.0 * w.grad
+    
+save_matrix_image(w)
+print('loss -', loss.item())
+
+print("-----------------")
+print("sampling from trained model")
+print("-----------------")
+g = torch.Generator().manual_seed(2147483647) 
+for _ in range(5):
+    out = []
+    ix = 0  # start token '.'
+    while True:
+        xenc = F.one_hot(torch.tensor([ix]), num_classes=27).float()
+        logits = xenc @ w # predict log counts
+        counts = logits.exp() # counts equivalent to N
+        p = counts/counts.sum(1, keepdim = True) # probs for next character 
+        ix = torch.multinomial(p, num_samples=1, replacement=True, generator=g).item()
+        if ix == 0:
+            break
+        out.append(itos[ix])
+    print("".join(out))
+    
